@@ -1,3 +1,31 @@
+# Scripts
+
+## Where to start
+
+This folder has four subfolders plus this file. If you're new here, open
+them in this order:
+
+1. **`setup/README.md`** first — explains the EC2 build environment, why
+   each package/env-var is needed, and what `setup_ec2.sh`,
+   `build_jules.sh`, and `get_run_directory.sh` each do.
+2. **`run/README.md`** next — explains `run_jules.sh`, i.e. actually
+   running the model once you have a build and a run directory.
+3. **`postprocessing/README.md`** next — explains `plot_quicklook.py` and
+   `read_tile_output.py`, the sanity-check plots you make once a run has
+   finished.
+4. **`preprocessing/`** last, and only if you need it — `build_frac_file.py`
+   and `download_era5.py` build the tile-fraction and forcing inputs for a
+   *new* site. Skip this on a first pass; the tutorial's example site
+   (London_StJamesPark) already ships with these files pre-built in
+   `data/frac/` and `data/forcing/`.
+
+Once you've read those and understand what each step does, come back to
+**this file** — it's the fast path: the same four steps (build,
+get-a-run-directory, run, plot) as ready-to-paste shell blocks, with no
+detours through the explanations above.
+
+## Copy in this order
+
 Each block below is complete and self-contained — copy the whole block,
 paste it into the EC2 terminal, done. No need to open any other file.
 (The one exception is JULES's own source code, which step 1's script
