@@ -106,7 +106,3 @@ Then edit just these, in this order:
 
 Everything else in the folder — the other ~37 files — can be left exactly
 as copied.
-
----
-
-[Back to main tutorial](../../README.md)
