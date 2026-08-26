@@ -1,86 +1,81 @@
-# JULES/MORUSES Urban Climate Modelling on EC2
----
-
 # Chapter 1. Connect to EC2
 
-## Learning Objective
+## Learning objective
 
-Connect from a local computer to a remote EC2 Linux server.
+Connect from your local computer to a remote EC2 Linux server over SSH.
 
 ```text
-Local Computer
+Local computer
       ↓
-SSH
+     SSH
       ↓
-EC2 Instance
+EC2 instance
 ```
 
-## Step 1. Check the information
+## Step 1. Get your connection details
 
-You need:
+You need three things — ask in the group chat for the current instance IP
+and the shared `.pem` key file if you don't have them yet:
 
 ```text
-Public IP address
-Username
-Private key (.pem)
+Public IP address   e.g. 54.xx.xx.xx
+Username             ec2-user
+Private key (.pem)   e.g. jules.pem
 ```
 
-Example:
-
-```text
-54.xx.xx.xx
-ec2-user
-course-key.pem
-```
-
-## Step 2. Connect to EC2
+Put the `.pem` file somewhere on your **local machine** (not on EC2), e.g.
+`~/Desktop/jules.pem`. On macOS/Linux, fix its permissions once:
 
 ```bash
-ssh -i course-key.pem ec2-user@54.xx.xx.xx
+chmod 400 ~/Desktop/jules.pem
 ```
 
-### Purpose
+## Step 2. Connect
 
-Create a secure remote connection.
+Open a terminal on your **local machine** (Terminal.app, iTerm, Windows
+Terminal + WSL, etc.) and run:
+
+```bash
+ssh -i ~/Desktop/jules.pem ec2-user@54.xx.xx.xx
+```
 
 ### Command breakdown
 
 ```text
-ssh            Secure Shell
--i             identity file
-course-key.pem private key
-ec2-user       login account
-54.xx.xx.xx    server IP
+ssh          Secure Shell — opens an encrypted remote session
+-i           "identity file" — which private key to authenticate with
+jules.pem    the shared private key for this instance
+ec2-user     the login account on the EC2 instance
+54.xx.xx.xx  the instance's public IP
 ```
 
 ### Success indicator
 
-```bash
+The first time you connect to a given instance you'll be asked to confirm
+its fingerprint — type `yes`. You'll know it worked when the prompt changes
+to `[ec2-user@ip-... ~]$`:
+
+```text
 ❯ ssh -i "jules.pem" ec2-user@ec2-18-130-30-147.eu-west-2.compute.amazonaws.com
 The authenticity of host 'ec2-18-130-30-147.eu-west-2.compute.amazonaws.com (18.130.30.147)' can't be established.
 ED25519 key fingerprint is: SHA256:5NZ8f8ZXknpalfUBdCbjI+Wh0jV9HTNF2QwMLeUgaSU
-This key is not known by any other names.
 Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
 Warning: Permanently added 'ec2-18-130-30-147.eu-west-2.compute.amazonaws.com' (ED25519) to the list of known hosts.
-** WARNING: connection is not using a post-quantum key exchange algorithm.
-** This session may be vulnerable to "store now, decrypt later" attacks.
-** The server may need to be upgraded. See https://openssh.com/pq.html
    ,     #_
    ~\_  ####_        Amazon Linux 2023
   ~~  \_#####\
   ~~     \###|
   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
    ~~       V~' '->
-    ~~~         /
-      ~~._.   _/
-         _/ _/
-       _/m/'
 [ec2-user@ip-172-31-46-208 ~]$
 ```
 
+**Everything from here on happens inside this one SSH session** — no need
+to go back to your local machine until Chapter 14 (plotting).
+
 ---
 
-# Chapter 2. Understand the JULES Workflow
+# Chapter 2. Understand the JULES workflow
 
 ## What is JULES?
 
@@ -88,112 +83,91 @@ Warning: Permanently added 'ec2-18-130-30-147.eu-west-2.compute.amazonaws.com' (
 Joint UK Land Environment Simulator
 ```
 
-A land-surface model that simulates:
-
-```text
-Energy balance
-Water balance
-Carbon balance
-Land-atmosphere exchange
-```
+A land-surface model that simulates the exchange of energy, water and
+carbon between the land surface and the atmosphere:
 
 ```
-Meteorology 
-        ↓
-
-     JULES
-
+Meteorology
+    ↓
+  JULES
  ┌─────────────┐
  │ Radiation   │
- │ Heat Flux   │
- │ Soil Water  │
+ │ Heat flux   │
+ │ Soil water  │
  │ Carbon      │
  └─────────────┘
-
-        ↓
-
-  Air Temperature
-  Surface Temperature
-  Sensible Heat
-  Latent Heat
-
+    ↓
+Air temperature, surface temperature,
+sensible heat, latent heat
 ```
 
 ## What is MORUSES?
 
 ```text
-Multi-layer Urban Surface Exchange Scheme
+Met Office - Reading Urban Surface Exchange Scheme
 ```
 
-Urban representation inside JULES.
+JULES's two-tile representation of a city: instead of one blended "urban"
+surface, a city point is split into a **canyon** tile (streets + walls) and
+a **roof** tile, each with its own energy balance:
 
 ```text
-Urban Roof Tile
-Urban Canyon Tile
-
-roof
--------|        |-------
-       |        |
-       | canyon |
-       |--------|
+       roof
+-------|    |-------
+       |    |
+       |canyon|
+       |------|
 ```
+
+## The workflow at a glance
+
+```text
+Set up the environment  →  Build JULES  →  Get a run directory  →  Run  →  Plot
+     (once)                  (once)         (per site)          (per run)
+```
+
+Everything you do after the first two steps is just editing small text
+config files ("namelists") and re-running — no need to touch the source
+code again.
 
 ---
 
-# Chapter 3. Prepare Memory
+# Chapter 3. Prepare swap memory
 
-## Why?
+## Why
 
-Small EC2 instances often run out of memory when compiling JULES.
+This group's EC2 instances are small (~900MB–1GB RAM). Compiling JULES
+without extra swap space reliably runs out of memory partway through.
 
-## Step 3. Check memory
+## Step 3. Check current memory
 
 ```bash
 free -h
 ```
 
-Look for:
+Look at the `Mem` and `Swap` rows:
 
 ```text
-Mem
-Swap
-```
-
-### Success indicator
-```
                total        used        free      shared  buff/cache   available
 Mem:           957Mi       161Mi       552Mi       0.0Ki       243Mi       663Mi
 Swap:             0B          0B          0B
-
 ```
 
-## Step 4. Create a 2 GB swap file
+If `Swap` is `0B`, you need the next two steps.
+
+## Step 4. Create a 2GB swap file
 
 ```bash
 sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
 ```
 
-### Input
-
 ```text
-/dev/zero
+Input:  /dev/zero          (an endless stream of zero bytes)
+Output: /swapfile           (the file being created)
+Size:   2048 × 1MB = 2GB
 ```
 
-### Output
-
-```text
-/swapfile
-```
-
-### Size
-
-```text
-2048 × 1 MB
-=
-2 GB
-```
-
-## Step 5. Enable swap
+## Step 5. Enable the swap file
 
 ```bash
 sudo chmod 600 /swapfile
@@ -215,100 +189,65 @@ Mem:           957Mi       122Mi        83Mi       0.0Ki       751Mi       702Mi
 Swap:          2.0Gi          0B       2.0Gi
 ```
 
+These three commands are idempotent — safe to paste again later without
+creating a second swap file (the setup script in Chapter 4 skips this step
+automatically if swap is already on).
+
 ---
 
-# Chapter 4. Install Build Tools
+# Chapter 4. Install build tools
 
-## Step 6. Install GCC
+## Step 6–8. Compiler, git, make, perl
 
-```bash
-sudo dnf install gcc
-```
-
-Purpose:
-
-```text
-Compile C libraries
-```
-
-## Step 7. Install GNU Fortran
+JULES is written in Fortran and built with FCM (Chapter 7), which needs a
+handful of Perl modules a minimal Amazon Linux image doesn't ship by
+default.
 
 ```bash
-sudo dnf install gcc-gfortran
-```
-
-Purpose:
-
-```text
-Compile JULES source code
-```
-
-Verify:
-
-```bash
-gfortran --version
-```
-
-## Step 8. Install Git, Make, and Perl
-
-```bash
-sudo dnf install -y git make \
+sudo dnf install -y git make gcc gcc-gfortran \
   perl-FindBin perl-File-Copy perl-File-Compare perl-Sys-Hostname \
   perl-IO-Compress perl-Digest-SHA perl-Text-Balanced perl-Time-Piece perl-filetest
 ```
 
-Purpose:
-
 ```text
-git  → download code
-make → build software
-perl → read config
+git           → download source code
+make          → build software from source
+gcc-gfortran  → the Fortran compiler that will compile JULES
+perl-*        → modules FCM's build scripts assume are present
+```
+
+Verify the Fortran compiler is there:
+
+```bash
+gfortran --version
 ```
 
 ---
 
 # Chapter 5. Install Miniforge
 
-## Why?
+## Why
 
-To obtain:
+Miniforge gives you `conda`, Python, and — critically — a working
+`netcdf-fortran` library, which Amazon Linux's own package repos don't
+ship at all.
 
-```text
-Conda
-Python
-NetCDF libraries
-```
-
-## Step 9. Download Miniforge
+## Step 9–10. Download and install
 
 ```bash
-curl -L -o miniforge.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+curl -sL -o /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+bash /tmp/miniforge.sh -b -p ~/miniforge3
 ```
 
-## Step 10. Install Miniforge
-
-```bash
-bash miniforge.sh -b -p ~/miniforge3
-```
-
-Result:
+Expected tail of the output:
 
 ```text
-~/miniforge3
-```
-
-Expected:
-
-```text
-Linking conda-package-handling-2.4.0-pyh7900ff3_2
 Linking conda-26.3.2-py313h78bf25f_1
-
 Transaction finished
-
 installation finished.
 ```
 
-## Step 11. Activate Miniforge
+## Step 11. Activate it
 
 ```bash
 source ~/miniforge3/bin/activate
@@ -320,29 +259,31 @@ Verify:
 conda --version
 ```
 
+You'll need to re-run this `source` line in any new terminal session where
+you want `conda` on your `PATH` — it isn't permanent by default.
+
 ---
 
-# Chapter 6. Install NetCDF Fortran
+# Chapter 6. Install NetCDF-Fortran
 
-## Why?
+## Why
 
-JULES reads:
+JULES reads its meteorological forcing from `.nc` (NetCDF) files and writes
+its output as `.nc` files too — it needs the Fortran NetCDF library to do
+either.
 
-```text
-ERA5.nc
-```
-
-and writes:
-
-```text
-output.nc
-```
-
-## Step 12. Install NetCDF Fortran
+## Step 12. Install
 
 ```bash
-conda install -y -c conda-forge netcdf-fortran xarray
+conda install -y -c conda-forge netcdf-fortran
 ```
+
+> **Only `netcdf-fortran` here — not `xarray` or other Python packages.**
+> Installing more packages alongside it makes conda's dependency solver do
+> much more work, and on an instance this small the solver process has been
+> observed to get OOM-killed partway through. Python packages for plotting
+> come later, via `pip` (Chapter 4 of the script bundle), which uses
+> prebuilt wheels instead of solving a dependency graph.
 
 ## Step 13. Verify
 
@@ -352,9 +293,9 @@ nf-config --version
 
 Expected:
 
-```bash
-$ nf-config --version                                                            
-4.6.4 
+```text
+$ nf-config --version
+4.6.4
 ```
 
 ---
@@ -367,150 +308,129 @@ $ nf-config --version
 Flexible Configuration Management
 ```
 
-JULES build system.
+The Met Office's own build tool — JULES compiles with `fcm make`, not a
+plain `Makefile`.
 
-## Step 14. Download FCM
+## Step 14. Download
 
 ```bash
-git clone https://github.com/metomi/fcm.git ~/fcm
+git clone -q https://github.com/metomi/fcm.git ~/fcm
 ```
 
 ## Step 15. Verify
 
 ```bash
 ~/fcm/bin/fcm --version
-#FCM 2021.05.0-12-g3b045b3 (/home/ec2-user/fcm)
+```
+
+```text
+FCM 2021.05.0-12-g3b045b3 (/home/ec2-user/fcm)
 ```
 
 ---
 
 # Chapter 8. Download JULES
 
-## Step 16. Clone JULES
+## Step 16. Clone the JULES source
+
+This is the one genuine external dependency in the whole setup — everything
+else so far has been generic Linux tooling.
 
 ```bash
-git clone --depth 1 https://github.com/MetOffice/jules.git ~/jules_source
+git clone -q --depth 1 https://github.com/MetOffice/jules.git ~/jules_source
 ```
 
-## Important folders
+## Important folders inside it
 
 ```text
-src/       source code
-etc/       build configuration
-docs/      documentation
+src/    Fortran source code
+etc/    build configuration (fcm-make/make.cfg — used in Chapter 9)
+docs/   JULES's own documentation
 ```
 
 ---
 
 # Chapter 9. Build JULES
 
-## Step 17. Activate environment
+## Step 17. Put the tools on your PATH
 
 ```bash
 source ~/miniforge3/bin/activate
 export PATH=$HOME/fcm/bin:$HOME/miniforge3/bin:$PATH
 ```
 
-## Step 18. Select compiler
+## Step 18–21. Tell `fcm make` how to build
 
 ```bash
+export JULES_PLATFORM=custom
 export JULES_COMPILER=gfortran
-```
-
-Meaning:
-
-```text
-Use GNU Fortran
-```
-
-## Step 19. Disable MPI
-
-```bash
-export JULES_MPI=nompi
-```
-
-Meaning:
-
-```text
-Single-process build
-```
-
-## Step 20. Disable OpenMP
-
-```bash
+export JULES_BUILD=normal
 export JULES_OMP=noomp
-```
-
-Meaning:
-
-```text
-No shared-memory parallelism
-```
-
-## Step 21. Enable NetCDF
-
-```bash
+export JULES_MPI=nompi
 export JULES_NETCDF=netcdf
 export JULES_NETCDF_PATH=$HOME/miniforge3
+export JULES_FFLAGS_EXTRA="-fallow-argument-mismatch -Wno-error"
 ```
-
-Meaning:
 
 ```text
-Read and write NetCDF files
+JULES_PLATFORM=custom   JULES ships ready-made configs for JASMIN/Met
+                         Office clusters, not a plain EC2 box — this tells
+                         it to use its generic path instead
+JULES_COMPILER=gfortran use the GNU Fortran compiler
+JULES_MPI=nompi         single-process build, no MPI
+JULES_OMP=noomp         no shared-memory (OpenMP) parallelism
+JULES_NETCDF=netcdf     enable NetCDF file I/O, pointed at Miniforge's copy
+JULES_FFLAGS_EXTRA       gfortran 11 is strict about JULES's dummy-MPI
+                         stub's implicit interface; without these two
+                         flags the build fails with a hard compiler error
 ```
 
-## Step 22. Build the executable
+## Step 22. Compile
 
 ```bash
-mkdir -p ~/jules_build
-cd ~/jules_build
-
+mkdir -p ~/jules_build && cd ~/jules_build
 fcm make -f ~/jules_source/etc/fcm-make/make.cfg -j 1
 ```
 
-Internally:
-
 ```text
-Fortran Source
-      ↓
-Object Files
-      ↓
-Link Libraries
-      ↓
+Fortran source
+    ↓
+Object files
+    ↓
+Link libraries
+    ↓
 jules.exe
 ```
 
-Expected:
+Use `-j 1`, not a higher number — these instances are too small for
+parallel compilation. Expect ~1 minute for all 617 source files:
+
 ```text
 [info] sources: total=617, analysed=0, elapsed-time=0.1s, total-time=0.0s
-[info] target-tree-analysis: elapsed-time=0.8s
 [info] compile   targets: modified=7, unchanged=485, failed=0, total-time=52.0s
-[info] compile+  targets: modified=6, unchanged=484, failed=0, total-time=0.1s
-[info] install   targets: modified=0, unchanged=1, failed=0, total-time=0.0s
 [info] link      targets: modified=1, unchanged=0, failed=0, total-time=0.9s
-[info] TOTAL     targets: modified=14, unchanged=970, failed=0, elapsed-time=55.1s
-[done] make build          # 55.2s
 [done] make                # 55.7s
 ```
 
-## Step 23. Verify compilation
+## Step 23. Verify
 
 ```bash
-ls ~/jules_build/build/bin/jules.exe
+ls -la ~/jules_build/build/bin/jules.exe
 ```
 
-Expected:
-
-```text
-jules.exe
-```
+You should see a ~55MB executable. This step only needs to be done once —
+everything after this is per-run, not per-build.
 
 ---
 
-# Chapter 10. Download Tutorial Data
+# Chapter 10. Get a run directory
 
-## Step 24. Download tutorial repository
+## Step 24. Download this tutorial's data
+
+Every JULES run needs a `namelists/` folder (~41 small text config files)
+plus forcing and land-cover data. Rather than assembling all of that by
+hand, one script downloads a ready-made example site
+(`London_StJamesPark`) and wires the paths together automatically.
 
 ```bash
 RUN_DIR="${RUN_DIR:-$HOME/my_first_run}"
@@ -522,70 +442,65 @@ rm -rf "$TMP_DIR" && mkdir -p "$TMP_DIR"
 tar -xzf "$TMP_TAR" -C "$TMP_DIR" --strip-components=1
 ```
 
-Breakdown:
-
-- `wget` downloads a remote file.
-- `-q` reduces output.
-- `-O "$TMP_TAR"` writes the download to the selected filename.
-- The URL provides a compressed archive of the `main` branch.
-
-Repository structure:
-
 ```text
-ancillary_data/
-forcing_data/
-namelists/
+wget -O "$TMP_TAR"   download this tutorial repo as a .tar.gz archive
+tar --strip-components=1   unpack it, dropping the repo-name folder level
 ```
 
-### forcing_data
+This downloads a snapshot via `wget` (not `git clone`) — no repo history,
+no git metadata, just the files this tutorial needs.
+
+Repository layout, once unpacked:
 
 ```text
-Meteorological forcing
-```
-
-### namelists
-
-```text
-Model configuration
+data/frac/        land-cover fraction files (.nc)
+data/forcing/     meteorological forcing files (.nc)
+namelists/        model configuration templates, one folder per site
 ```
 
 ---
 
-# Chapter 11. Prepare Run Directory
+# Chapter 11. Prepare the run directory
 
-## Step 25. Create working directory
+## Step 25–26. Copy the example site's config in
 
 ```bash
 mkdir -p "$RUN_DIR"
-```
-
-Purpose:
-
-```text
-Keep tutorial files unchanged
-```
-
-## Step 26. Copy London StJamesPark case
-
-```
 cp -r "$TMP_DIR/namelists/London_StJamesPark" "$RUN_DIR/namelists"
 mkdir -p "$RUN_DIR/output"   # JULES does not create this itself
 ```
 
-expected:
 ```text
 London_StJamesPark
-      ↓
+      ↓  (copied)
 ~/my_first_run/namelists
 ```
 
-## Step 27. Create output directory
+## Step 27. Point the namelists at the real data files
+
+The copied namelists reference the forcing and fraction files by path —
+those paths need to point at the files you just downloaded, not a
+placeholder. Two lines need patching:
 
 ```bash
-mkdir -p ~/my_first_run/output
+FRAC_FILE=$(find "$TMP_DIR" -iname "*frac*.nc" | head -1)
+FORCING_FILE=$(find "$TMP_DIR" -iname "*era5*.nc" | head -1)
+sed -i "s|file='.*frac.*\.nc'|file='$FRAC_FILE'|" "$RUN_DIR/namelists/ancillaries.nml"
+sed -i "s|file='.*era5.*\.nc'|file='$FORCING_FILE'|" "$RUN_DIR/namelists/drive.nml"
 ```
 
+> **Don't skip this step.** Without it, `ancillaries.nml`'s `&jules_frac`
+> block and `drive.nml`'s `&jules_drive` block still contain the
+> generic path the file was written with, and JULES fails at startup with
+> a file-not-found error the first time it tries to open the forcing file.
 
+Verify the count of namelist files (should be ~41 — JULES opens a fixed set
+of files by name at startup, so all of them need to be present even though
+you'll only ever edit a handful):
+
+```bash
+ls "$RUN_DIR/namelists" | wc -l
+```
 
 ---
 
@@ -596,264 +511,207 @@ mkdir -p ~/my_first_run/output
 ```bash
 RUN_DIR="${RUN_DIR:-$HOME/my_first_run}"
 cd "$RUN_DIR"
-mkdir -p output   # JULES does not create this itself
+mkdir -p output
 ${JULES_EXE:-$HOME/jules_build/build/bin/jules.exe} namelists/
 ```
 
-What happens?
+This is safe to paste from anywhere in your home directory — it `cd`s into
+`RUN_DIR` itself first, rather than assuming you're already there.
+
+## What happens internally
 
 ```text
 Read namelists
-      ↓
+    ↓
 Read forcing
-      ↓
+    ↓
 Initialise state variables
-      ↓
+    ↓
 Time integration
-      ↓
+    ↓
 Write NetCDF output
 ```
 
+No job scheduler needed — a single-point, few-month run finishes in well
+under an hour on this small instance, directly in your terminal.
+
 ## Success indicator
 
-Output files appear in:
+The run prints progress and ends by closing its output files, with no
+`[FATAL ERROR]` line:
 
 ```text
-output/
-```
-
-expected:
-```
-[INFO] WRITE_DUMP: sathh
-[INFO] WRITE_DUMP: satcon
-[INFO] WRITE_DUMP: sm_sat
-[INFO] WRITE_DUMP: sm_crit
-[INFO] WRITE_DUMP: sm_wilt
-[INFO] WRITE_DUMP: hcap
-[INFO] WRITE_DUMP: hcon
 [INFO] WRITE_DUMP: albsoil
-[INFO] WRITE_DUMP: frac_agr
-[INFO] WRITE_DUMP: co2_mmr
-[INFO] WRITE_DUMP: latitude
-[INFO] WRITE_DUMP: longitude
 [INFO] file_ncdf_close: Closing file output/my_first_run.dump.20230731.82800.nc
-[INFO] file_ncdf_close: Closing file /tmp/jules-tutorial-data/forcing_data/London_StJamesPark_era5_2022_10-2023_12.nc
+[INFO] file_ncdf_close: Closing file /tmp/jules-tutorial-data/data/forcing/London_StJamesPark_era5_2022_10-2023_12.nc
 [INFO] file_ncdf_close: Closing file output/my_first_run.hourly_output.nc
 ```
+
+**Worried about your SSH connection dropping mid-run?** Start it inside
+`tmux` so it keeps going even if you disconnect: `tmux new -s jules_run`,
+run the command above inside that session, detach with `Ctrl-b` then `d`,
+reconnect later with `tmux attach -t jules_run`.
+
 ---
 
-# Chapter 13. Verify Output
+# Chapter 13. Verify the output
 
-## Step 29. Check files
+## Step 29. List the output files
 
 ```bash
 ls output
 ```
 
-Typical output:
-
 ```text
-ls output
 my_first_run.dump.20230301.0.nc  my_first_run.dump.20230731.82800.nc  my_first_run.hourly_output.nc
 ```
 
-## Step 30. Inspect NetCDF structure
+The `dump.*` files are restart/state snapshots; `hourly_output.nc` is the
+one with the variables you actually asked for in `output.nml`.
+
+## Step 30. Inspect its structure
 
 ```bash
-ncdump -h output/file.nc
+ncdump -h output/my_first_run.hourly_output.nc
 ```
 
-Look for:
-
-```text
-dimensions
-variables
-units
-time
-```
+Look for `dimensions`, `variables`, `units`, and `time` in the header —
+this tells you what's inside without opening it in Python.
 
 ---
 
-# Chapter 14. Read Model Output in Python
+# Chapter 14. Read model output in Python
 
-## Step 31. Open NetCDF
+## Step 31. Install the plotting stack
 
-set python environment
 ```bash
 pip install --quiet matplotlib pandas netCDF4 xarray
 ```
 
-In python
+`pip`, not `conda`/`mamba install` — see the callout in Chapter 6. Verified
+on this instance: conda's solver gets OOM-killed; pip's prebuilt wheels
+install cleanly.
+
+## Step 32. Open the file
+
 ```python
 import xarray as xr
-
-ds = xr.open_dataset('output.nc')
-```
-
-Meaning:
-
-```text
-Load JULES output
-```
-
-## Step 32. Explore contents
-
-```python
+ds = xr.open_dataset("output/my_first_run.hourly_output.nc")
 print(ds)
 ```
 
-Look at:
-
-```text
-Dimensions
-Coordinates
-Variables
-```
+Look at the `Dimensions`, `Coordinates`, and `Data variables` sections of
+the printout to see what's available.
 
 ---
 
-# Chapter 15. Plot Air Temperature
+# Chapter 15. Plot air temperature
 
-## Step 33. Plot t1p5m_gb
+## Step 33. Plot `t1p5m_gb`
 
 ```python
-ds['t1p5m_gb'].plot()
+(ds["t1p5m_gb"] - 273.15).plot()
 ```
-
-Meaning:
 
 ```text
-1.5 m air temperature
+t1p5m_gb   1.5m air temperature, gridbox mean (Kelvin in the file)
+- 273.15   convert Kelvin to Celsius before plotting
 ```
 
-If units are Kelvin:
+Or from the command line, without opening a Python shell, using the
+ready-made script in this repo:
 
-```python
-ds['t1p5m_gb'] - 273.15
+```bash
+python3 scripts/postprocessing/plot_quicklook.py output/my_first_run.hourly_output.nc --var t1p5m_gb --out quicklook.png
 ```
 
-Convert to Celsius.
+**Expected shape:** a wiggly line with a clear daily up-down cycle (warmer
+afternoons, cooler nights) over the run period — not a flat line or a
+single spike, which would signal a units or indexing mistake.
 
 ---
 
-# Chapter 16. Your tasks 
+# Chapter 16. Your tasks
 
-Use **AI** to help and **save the prompt that you used**.
+Use **AI** to help, and **save the prompts you used**.
 
-## Task 1: Explore Output Variables
+## Task 1 — Explore output variables
 
-Instructions: Activate conda, start Python, load the output file, and answer the questions.
-
-```
+```bash
 source ~/miniforge3/bin/activate
-python
+python3
 ```
 
-Q1: How many variables are in the output file?
-
-Q2: How many time steps (hours) are in the output?
-
-
-## Task 2: Plot Radiation Components
-Instructions: Use Python to plot and compare shortwave and longwave radiation.
-
-Variables
-```
-'sw_down','lw_down','rad_net'
+```python
+import xarray as xr
+ds = xr.open_dataset("output/my_first_run.hourly_output.nc")
 ```
 
-## Task 3: Modify Urban Emissivity
-Instructions: Edit the urban properties file `ancillaries.nml`, rerun the model, and compare results.
+- **Q1.** How many variables are in the output file?
+- **Q2.** How many time steps (hours) are in the output?
 
-Modify the 'emisw','emisr' to 0.98
+## Task 2 — Plot radiation components
+
+Plot and compare these three variables from the same file:
+
+```text
+sw_down    lw_down    rad_net
 ```
+
+## Task 3 — Modify urban emissivity
+
+Edit `namelists/ancillaries.nml`'s `&urban_properties` block: change
+`emisw` and `emisr` from `0.90, 0.95` to `0.98, 0.98`.
+
+```text
 &urban_properties
   nvars=7
   use_file=7*.false.
   var='wrr','hwr','hgt','albwl','albrd','emisw','emisr'
-  const_val=0, 0, 0, 0.25, 0.08, 0.90, 0.95
+  const_val=0, 0, 0, 0.25, 0.08, 0.98, 0.98
 /
 ```
 
-rerun model and plot the temperature and radiation components
+Re-run the model (Chapter 12) and re-plot temperature and radiation.
 
-```
-Question:
+**Before you run it — predict:** with urban emissivity raised from 0.95 to
+0.98, do you expect:
 
-Urban emissivity:
-0.95 → 0.98
-
-Do you expect:
-
+```text
 A) Higher roof temperature
-
 B) Lower roof temperature
-
 C) No change
 ```
 
-## Download the plots, and share your plots and AI prompts
+## Download your plots
 
-```
-# Download to your local machine
-scp -i your-key.pem ec2-user@your-ec2-ip:~/my_first_run/*.png ~/Downloads/
+From your **local machine**:
+
+```bash
+scp -i jules.pem ec2-user@<your-ec2-ip>:~/my_first_run/*.png ~/Downloads/
 ```
 
-You may do more experiments.
+Run this on your laptop's terminal, not inside the SSH session — it's
+copying files *from* EC2 *to* your machine.
+
+You may do further experiments beyond these three tasks.
 
 ---
 
-# Chapter 17. Common Errors
+# Chapter 17. Common errors
 
-## SSH Failure
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Permission denied` on `ssh` | wrong username, key, or IP | double-check all three against Step 1 |
+| `gfortran: command not found` | compiler not installed | `sudo dnf install gcc-gfortran` |
+| `fcm: command not found` | FCM not on `PATH` | `export PATH=$HOME/fcm/bin:$PATH` |
+| build fails with an MPI-interface compiler error | missing `JULES_FFLAGS_EXTRA` | re-export the full variable list in Chapter 9, Step 18–21, before rebuilding |
+| `nf-config: command not found` | NetCDF-Fortran not installed / conda not activated | `source ~/miniforge3/bin/activate`, then Chapter 6 |
+| `Cannot open file '.../ancillaries.nml'`-adjacent file errors at startup | Chapter 11 Step 27 (the `sed` path patch) was skipped | re-run that step, or delete `$RUN_DIR` and redo Chapter 10–11 |
+| conda hangs or gets killed while installing | too many packages requested via `conda install` at once on a small instance | only ever `conda install` `netcdf-fortran` alone; get Python plotting packages via `pip` |
+| out-of-memory during compile | no swap configured | Chapter 3 |
 
-```text
-Permission denied
-```
-
-Check:
-
-```text
-Username
-Private key
-IP address
-```
-
-## Compiler Missing
-
-```text
-gfortran: command not found
-```
-
-Install:
-
-```bash
-sudo dnf install gcc-gfortran
-```
-
-## FCM Missing
-
-```text
-fcm: command not found
-```
-
-Check:
-
-```bash
-export PATH=$HOME/fcm/bin:$PATH
-```
-
-## NetCDF Not Found
-
-Check:
-
-```bash
-nf-config --version
-```
-
-## Memory Problems
-
-Check:
+Check current memory/swap state any time with:
 
 ```bash
 free -h
@@ -862,26 +720,37 @@ swapon --show
 
 ---
 
-# Chapter 18. Student Checklist
+# Chapter 18. Checklist
 
-After completing the practical, students should be able to:
+After completing this lab, you should be able to:
 
-- Explain what JULES is
-- Explain what MORUSES is
-- Connect to EC2 using SSH
-- Create and verify swap memory
-- Install NetCDF Fortran
-- Install FCM
-- Compile JULES
-- Prepare a run directory
-- Run the London St James's Park example
-- Inspect NetCDF output
-- Plot t1p5m_gb
-- Diagnose common model failures
+- [ ] Explain what JULES is and what MORUSES adds to it
+- [ ] Connect to the EC2 instance over SSH
+- [ ] Create and verify swap memory
+- [ ] Install NetCDF-Fortran without triggering the conda OOM issue
+- [ ] Install FCM and build JULES from source
+- [ ] Explain what each `JULES_*` build environment variable does
+- [ ] Prepare a run directory for a new site, including the `sed` path patch
+- [ ] Run the London St James's Park example end-to-end
+- [ ] Inspect NetCDF output with `ncdump` and `xarray`
+- [ ] Plot `t1p5m_gb` and get a sensible-looking diurnal cycle
+- [ ] Diagnose the common failures in Chapter 17 without help
 
 ---
 
-# Final Remark
+## Where the rest of this repo lives
+
+```text
+scripts/README.md        the same commands above, as copy-paste blocks in order
+scripts/setup/           setup_ec2.sh, build_jules.sh
+scripts/run/              run_jules.sh
+scripts/postprocessing/   plot_quicklook.py, download_era5.py
+docs/tutorial.md          longer-form walkthrough of every namelist you might edit
+docs/running_on_ec2.md    this same lab, with every script fully inlined
+```
+
+Full JULES documentation: [jules-lsm.github.io](https://jules-lsm.github.io/)
+— the namelist reference there covers every option this lab didn't.
 
 ```text
 enjoy your life and use AI
