@@ -78,3 +78,7 @@ in the main [`README.md`](../../README.md#chapter-17-common-errors).
 Once you have output, see
 [`scripts/postprocessing/README.md`](../postprocessing/README.md) to plot
 it and check it looks sensible.
+
+---
+
+[Back to main tutorial](../../README.md)
