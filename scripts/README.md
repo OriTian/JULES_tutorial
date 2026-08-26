@@ -1,8 +1,16 @@
+Each block below is complete and self-contained — copy the whole block,
+paste it into the EC2 terminal, done. No need to open any other file.
+(The one exception is JULES's own source code, which step 1's script
+fetches with `git clone` — that's a real external dependency, not part of
+this repo.)
+
 ## 1. Environment setup
 
 ```bash
 cat > ~/setup_ec2.sh << 'EOF'
-
+#!/bin/bash
+# One-time environment setup for building JULES on the group's EC2 instance.
+# See setup/README.md in this repo for what each step does and why.
 set -e
 
 # 1. swap
@@ -44,7 +52,9 @@ bash ~/setup_ec2.sh
 
 ```bash
 cat > ~/build_jules.sh << 'EOF'
-
+#!/bin/bash
+# Builds JULES after setup_ec2.sh has been run once.
+# See setup/README.md in this repo for what each variable/flag does and why.
 set -e
 
 source ~/miniforge3/bin/activate
@@ -70,7 +80,11 @@ bash ~/build_jules.sh
 
 ```bash
 cat > ~/get_run_directory.sh << 'EOF'
-
+#!/bin/bash
+# Sets up a run directory using the tutorial's example site
+# (London_StJamesPark) namelists, forcing, and tile-fraction data.
+# Self-contained -- downloads what it needs via wget, no git clone of this
+# tutorial repo required. Run after build_jules.sh.
 set -e
 
 RUN_DIR="${RUN_DIR:-$HOME/my_first_run}"
@@ -101,7 +115,10 @@ bash ~/get_run_directory.sh
 
 ```bash
 cat > ~/run_jules.sh << 'EOF'
-
+#!/bin/bash
+# Run JULES -- no scheduler needed, a single-point/few-month run finishes
+# in minutes. Safe to run from anywhere -- cds into RUN_DIR itself, does
+# not rely on you having cd'd there first.
 set -e
 
 RUN_DIR="${RUN_DIR:-$HOME/my_first_run}"
