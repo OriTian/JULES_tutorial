@@ -218,3 +218,7 @@ python3 ~/plot_quicklook.py ~/my_first_run/output/*.hourly_output.nc --var t1p5m
 See `setup/README.md`, `run/README.md`, `postprocessing/README.md` for
 what each step does and why — this file is just the copy-paste blocks in
 order.
+
+---
+
+[Back to main tutorial](../README.md)
