@@ -16,7 +16,3 @@ highest urban fractions in the group's labmate9 site set.
 Committed directly (only ~8KB) so the tutorial works with **no
 `build_frac_file.py` step needed** — just point `ancillaries.nml`'s
 `&jules_frac` block at this file and go.
-
-**For a different site**, build your own with
-`scripts/preprocessing/build_frac_file.py` — see
-[`scripts/preprocessing/README.md`]([scripts/preprocessing/README.md](https://github.com/OriTian/JULES-tutorial/blob/main/scripts/preprocessing/README.md)).
